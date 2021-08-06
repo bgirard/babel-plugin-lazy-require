@@ -1,10 +1,10 @@
 {
   "name": "babel-plugin-lazy-require",
   "version": "1.0.3",
-  "description": "Transform CommonJS require statements into lazily evaluated imports",
+  "description": "Transform CommonJS require & ES6 Import statements into lazily evaluated imports",
   "main": "index.js",
   "scripts": {
-    "test": "nyc babel test --plugins ../index.js --out-dir test-dist",
+    "test": "nyc babel test --plugins ./index --out-dir test-dist",
     "coverage": "nyc report --reporter=lcov > coverage.lcov && codecov",
     "release": "standard-version"
   },
@@ -25,7 +25,8 @@
   },
   "homepage": "https://github.com/princjef/babel-plugin-lazy-require#readme",
   "devDependencies": {
-    "babel-cli": "^6.26.0",
+    "@babel/core": "^7.10.0",
+    "@babel/cli": "^7.10.0",
     "codecov": "^3.0.1",
     "nyc": "^11.3.0",
     "standard-version": "^4.2.0"
