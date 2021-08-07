@@ -25,6 +25,8 @@ const obj = {
       try {
         obj.constGlobalRequire = varGlobalRequire;
       } catch (letGlobalRequire) {}
+
+      const jsx = <DefaultImport loading />;
     }
 
     class constGlobalRequire {

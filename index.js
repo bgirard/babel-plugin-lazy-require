@@ -227,75 +227,111 @@ exports.default = function ({ types: t }) {
     },
   };
 
+  const requireUsagesIdentifier = ({
+    path,
+    requireScope,
+    declarations,
+    importsVar,
+    moduleImports,
+    isJSX,
+  }) => {
+    // We don't care about declarations
+    if (
+      ((t.isVariableDeclarator(path.parent) ||
+        t.isFunctionDeclaration(path.parent)) &&
+        path.parent.id === path.node) ||
+      ((t.isObjectProperty(path.parent) || t.isObjectMethod(path.parent)) &&
+        path.parent.key === path.node)
+    ) {
+      return;
+    }
+
+    // We also don't care about something that has been accessed
+    // off of a parent object (e.g. the `b` in `a.b`)
+    if (
+      t.isMemberExpression(path.parent) &&
+      path.parent.property === path.node
+    ) {
+      return;
+    }
+
+    // We also don't care about class methods or properties
+    if (
+      ["MethodDefinition", "ClassMethod"].some(
+        (type) => path.parent.type === type
+      ) &&
+      path.parent.key === path.node
+    ) {
+      return;
+    }
+
+    // If a binding is found, but either isn't derived from the same
+    // scope as our requires or isn't in our declarations map, we
+    // can't do anything with it
+    const binding = path.scope.bindings[path.node.name];
+    if (binding && binding.scope !== requireScope) {
+      return;
+    }
+
+    // If we don't have it in our declarations map, then it must be
+    // something else, skip
+    if (!declarations.has(path.node.name)) {
+      return;
+    }
+
+    function memberExpression(a, b) {
+      return isJSX ? t.jSXMemberExpression(a, b) : t.memberExpression(a, b);
+    }
+    function identifier(a) {
+      return isJSX ? t.jSXIdentifier(a) : t.identifier(a);
+    }
+
+    console.log(t);
+    let useLazyImportExpression = memberExpression(
+      identifier(importsVar.name),
+      identifier(
+        moduleImports.get(declarations.get(path.node.name).requireString)
+      )
+    );
+
+    const moduleMember = declarations.get(path.node.name).moduleMember;
+    if (moduleMember) {
+      useLazyImportExpression = memberExpression(
+        useLazyImportExpression,
+        identifier(moduleMember)
+      );
+    }
+
+    path.replaceWith(useLazyImportExpression);
+
+    // Don't process the value we just inserted
+    path.skip();
+  };
+
   const requireUsagesVisitor = {
     TSEntityName(path) {
       path.skip();
     },
+
+    JSXIdentifier(path) {
+      requireUsagesIdentifier({
+        path,
+        requireScope: this.requireScope,
+        declarations: this.declarations,
+        importsVar: this.importsVar,
+        moduleImports: this.moduleImports,
+        isJSX: true,
+      });
+    },
+
     Identifier(path) {
-      // We don't care about declarations
-      if (
-        ((t.isVariableDeclarator(path.parent) ||
-          t.isFunctionDeclaration(path.parent)) &&
-          path.parent.id === path.node) ||
-        ((t.isObjectProperty(path.parent) || t.isObjectMethod(path.parent)) &&
-          path.parent.key === path.node)
-      ) {
-        return;
-      }
-
-      // We also don't care about something that has been accessed
-      // off of a parent object (e.g. the `b` in `a.b`)
-      if (
-        t.isMemberExpression(path.parent) &&
-        path.parent.property === path.node
-      ) {
-        return;
-      }
-
-      // We also don't care about class methods or properties
-      if (
-        ["MethodDefinition", "ClassMethod"].some(
-          (type) => path.parent.type === type
-        ) &&
-        path.parent.key === path.node
-      ) {
-        return;
-      }
-
-      // If a binding is found, but either isn't derived from the same
-      // scope as our requires or isn't in our declarations map, we
-      // can't do anything with it
-      const binding = path.scope.bindings[path.node.name];
-      if (binding && binding.scope !== this.requireScope) {
-        return;
-      }
-
-      // If we don't have it in our declarations map, then it must be
-      // something else, skip
-      if (!this.declarations.has(path.node.name)) {
-        return;
-      }
-      let useLazyImportExpression = t.memberExpression(
-        this.importsVar,
-        t.identifier(
-          this.moduleImports.get(
-            this.declarations.get(path.node.name).requireString
-          )
-        )
-      );
-
-      const moduleMember = this.declarations.get(path.node.name).moduleMember;
-      if (moduleMember) {
-        useLazyImportExpression = t.memberExpression(
-          useLazyImportExpression,
-          t.identifier(moduleMember)
-        );
-      }
-
-      path.replaceWith(useLazyImportExpression);
-
-      // Don't process the value we just inserted
-      path.skip();
+      requireUsagesIdentifier({
+        path,
+        requireScope: this.requireScope,
+        declarations: this.declarations,
+        importsVar: this.importsVar,
+        moduleImports: this.moduleImports,
+      });
     },
   };
 
