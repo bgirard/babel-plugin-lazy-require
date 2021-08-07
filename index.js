@@ -286,7 +286,6 @@ exports.default = function ({ types: t }) {
       return isJSX ? t.jSXIdentifier(a) : t.identifier(a);
     }
 
-    console.log(t);
     let useLazyImportExpression = memberExpression(
       identifier(importsVar.name),
       identifier(
