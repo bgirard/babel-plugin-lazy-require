@@ -4,7 +4,7 @@
   "description": "Transform CommonJS require & ES6 Import statements into lazily evaluated imports",
   "main": "index.js",
   "scripts": {
-    "test": "nyc babel test --plugins ./index --out-dir test-dist",
+    "test": "nyc babel test --plugins ./index --out-dir test-dist --presets=@babel/preset-typescript --extensions='.ts'",
     "coverage": "nyc report --reporter=lcov > coverage.lcov && codecov",
     "release": "standard-version"
   },
@@ -44,5 +44,8 @@
       "html",
       "json"
     ]
+  },
+  "dependencies": {
+    "@babel/preset-typescript": "^7.15.0"
   }
 }

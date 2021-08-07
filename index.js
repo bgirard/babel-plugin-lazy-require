@@ -228,6 +228,9 @@ exports.default = function ({ types: t }) {
   };
 
   const requireUsagesVisitor = {
+    TSEntityName(path) {
+      path.skip();
+    },
     Identifier(path) {
       // We don't care about declarations
       if (
@@ -272,12 +275,6 @@ exports.default = function ({ types: t }) {
       if (!this.declarations.has(path.node.name)) {
         return;
       }
-      console.log(
-        path.node.name,
-        this.moduleImports.get(
-          this.declarations.get(path.node.name).requireString
-        )
-      );
       let useLazyImportExpression = t.memberExpression(
         this.importsVar,
         t.identifier(
