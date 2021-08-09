@@ -4,7 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true,
 });
 
-exports.default = function ({ types: t }) {
+exports.default = function ({ types: t, state }) {
   const visitor = {
     Program(path) {
       const declarations = new Map();
@@ -39,7 +39,7 @@ exports.default = function ({ types: t }) {
       const moduleImports = new Map();
       for (const [
         name,
-        { identifier, requireString, isConst },
+        { identifier, requireString, isConst, isImport },
       ] of declarations) {
         if (moduleImports.has(requireString)) {
           continue;
@@ -53,9 +53,10 @@ exports.default = function ({ types: t }) {
         );
         const valueIdentifier = t.identifier("value");
         const valueMember = t.memberExpression(identifier, valueIdentifier);
-        const requireExpression = t.callExpression(t.identifier("require"), [
-          t.stringLiteral(requireString),
-        ]);
+        const requireExpression = t.callExpression(
+          t.identifier(isImport ? "import" : "require"),
+          [t.stringLiteral(requireString)]
+        );
 
         properties.push(
           t.objectMethod(
@@ -178,6 +179,18 @@ exports.default = function ({ types: t }) {
       let unsupportedImport = false;
       const declarationsToAdd = [];
 
+      // Skip index/folders
+      const filename = source.value.split("/").pop();
+      if (
+        source.value.charAt(0) != "." ||
+        filename.charAt(0) === "." ||
+        filename.charAt(0).toUpperCase() !== filename.charAt(0) ||
+        filename === "WebSockClient"
+      ) {
+        path.skip();
+        return;
+      }
+
       path.traverse({
         ImportNamespaceSpecifier(path) {
           unsupportedImport = true;
@@ -188,7 +201,8 @@ exports.default = function ({ types: t }) {
             {
               node: path.node,
               isConst: true,
-              requireString: path.node.local.name,
+              requireString: source.value,
+              moduleMember: "default",
             },
           ]);
         },
@@ -207,6 +221,7 @@ exports.default = function ({ types: t }) {
             {
               node: path.node,
               isConst: true,
+              isImport: false,
               requireString: source.value,
               moduleMember: path.node.imported.name,
             },
@@ -240,9 +255,14 @@ exports.default = function ({ types: t }) {
       ((t.isVariableDeclarator(path.parent) ||
         t.isFunctionDeclaration(path.parent)) &&
         path.parent.id === path.node) ||
-      ((t.isObjectProperty(path.parent) || t.isObjectMethod(path.parent)) &&
+      (((t.isObjectProperty(path.parent) && path.parent.computed === false) ||
+        t.isObjectMethod(path.parent)) &&
         path.parent.key === path.node)
     ) {
+      return;
+    }
+
+    if (t.isJSXAttribute(path.parent) && path.parent.name === path.node) {
       return;
     }
 
@@ -265,17 +285,19 @@ exports.default = function ({ types: t }) {
       return;
     }
 
+    const name = path.node.name ?? path.node.escapedText;
+
     // If a binding is found, but either isn't derived from the same
     // scope as our requires or isn't in our declarations map, we
     // can't do anything with it
-    const binding = path.scope.bindings[path.node.name];
+    const binding = path.scope.bindings[name];
     if (binding && binding.scope !== requireScope) {
       return;
     }
 
     // If we don't have it in our declarations map, then it must be
     // something else, skip
-    if (!declarations.has(path.node.name)) {
+    if (!declarations.has(name)) {
       return;
     }
 
@@ -288,12 +310,10 @@ exports.default = function ({ types: t }) {
 
     let useLazyImportExpression = memberExpression(
       identifier(importsVar.name),
-      identifier(
-        moduleImports.get(declarations.get(path.node.name).requireString)
-      )
+      identifier(moduleImports.get(declarations.get(name).requireString))
     );
 
-    const moduleMember = declarations.get(path.node.name).moduleMember;
+    const moduleMember = declarations.get(name).moduleMember;
     if (moduleMember) {
       useLazyImportExpression = memberExpression(
         useLazyImportExpression,
@@ -308,7 +328,27 @@ exports.default = function ({ types: t }) {
   };
 
   const requireUsagesVisitor = {
-    TSEntityName(path) {
+    TSTypeAnnotation(path) {
+      path.skip();
+    },
+
+    TSTypeReference(path) {
+      path.skip();
+    },
+
+    TSExpressionWithTypeArguments(path) {
+      path.skip();
+    },
+
+    TSTypeQuery(path) {
+      path.skip();
+    },
+
+    ImportSpecifier(path) {
+      path.skip();
+    },
+
+    ExportSpecifier(path) {
       path.skip();
     },
 
