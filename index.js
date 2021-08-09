@@ -39,7 +39,7 @@ exports.default = function ({ types: t, state }) {
       const moduleImports = new Map();
       for (const [
         name,
-        { identifier, requireString, isConst, isImport },
+        { identifier, requireString, isConst },
       ] of declarations) {
         if (moduleImports.has(requireString)) {
           continue;
@@ -53,10 +53,9 @@ exports.default = function ({ types: t, state }) {
         );
         const valueIdentifier = t.identifier("value");
         const valueMember = t.memberExpression(identifier, valueIdentifier);
-        const requireExpression = t.callExpression(
-          t.identifier(isImport ? "import" : "require"),
-          [t.stringLiteral(requireString)]
-        );
+        const requireExpression = t.callExpression(t.identifier("require"), [
+          t.stringLiteral(requireString),
+        ]);
 
         properties.push(
           t.objectMethod(
@@ -221,7 +220,6 @@ exports.default = function ({ types: t, state }) {
             {
               node: path.node,
               isConst: true,
-              isImport: false,
               requireString: source.value,
               moduleMember: path.node.imported.name,
             },
