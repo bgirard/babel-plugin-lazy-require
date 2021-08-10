@@ -4,7 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true,
 });
 
-exports.default = function ({ types: t, state }) {
+exports.default = function ({ types: t }) {
   const visitor = {
     Program(path) {
       const declarations = new Map();
